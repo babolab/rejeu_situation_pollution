@@ -9,7 +9,7 @@ def main():
 
     # Upload files
     derive_file = st.file_uploader("Télécharger le fichier de dérive", type=["gpx"])
-    trajectoire_files = st.file_uploader("Télécharger les fichiers de trajectoire", type=["gpx"], accept_multiple_files=True)
+    trajectoire_files = st.file_uploader("Télécharger les fichiers de trajectoire de navires", type=["gpx"], accept_multiple_files=True)
 
     colors = ['red', 'green', 'blue', 'purple', 'orange', 'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen', 'cadetblue', 'darkpurple', 'pink', 'lightblue', 'lightgreen']
 
