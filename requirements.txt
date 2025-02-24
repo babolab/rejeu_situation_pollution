@@ -1,0 +1,7 @@
+streamlit
+gpxpy
+folium
+selenium
+webdriver-manager
+Pillow
+imageio
