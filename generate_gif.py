@@ -4,25 +4,44 @@ import folium
 from datetime import datetime, timedelta
 import imageio
 from PIL import Image
+import io
 import os
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-def extract_gpx_points(file_path):
+def extract_gpx_points(file_input):
     points = []
-    with open(file_path, 'r') as gpx_file:
-        gpx = gpxpy.parse(gpx_file)
-        for track in gpx.tracks:
-            for segment in track.segments:
-                for point in segment.points:
-                    points.append((point.latitude, point.longitude, point.time))
-        for waypoint in gpx.waypoints:
-            points.append((waypoint.latitude, waypoint.longitude, waypoint.time))
+    if isinstance(file_input, str):
+        with open(file_input, 'r') as gpx_file:
+            gpx = gpxpy.parse(gpx_file)
+    else:
+        gpx = gpxpy.parse(file_input)
+    
+    for track in gpx.tracks:
+        for segment in track.segments:
+            for point in segment.points:
+                points.append((point.latitude, point.longitude, point.time))
+    for waypoint in gpx.waypoints:
+        points.append((waypoint.latitude, waypoint.longitude, waypoint.time))
     return points
 
+def filter_nearby_ships(derive_points, trajectoire_points_list, distance_threshold=1.0):
+    # Convert nautical miles to degrees (approximation)
+    nautical_mile_to_degree = distance_threshold / 60.0
+    nearby_trajectoire_points_list = []
+
+    for trajectoire_points in trajectoire_points_list:
+        nearby_points = []
+        for lat, lon, time in trajectoire_points:
+            for derive_lat, derive_lon, _ in derive_points:
+                if abs(lat - derive_lat) <= nautical_mile_to_degree and abs(lon - derive_lon) <= nautical_mile_to_degree:
+                    nearby_points.append((lat, lon, time))
+                    break
+        nearby_trajectoire_points_list.append(nearby_points)
+
+    return nearby_trajectoire_points_list
 def create_map(derive_points, trajectoire_points_list, current_time, trajectoire_filenames):
-    # Calculate bounds with a 10 nautical mile buffer
     lats = [point[0] for point in derive_points]
     lons = [point[1] for point in derive_points]
     min_lat, max_lat = min(lats), max(lats)
@@ -103,6 +122,12 @@ def save_map_images(derive_points, trajectoire_points_list, start_time, end_time
     return images
 
 def create_gif(images):
+    # Create an in-memory bytes buffer
+    gif_bytes_io = io.BytesIO()
+    frames = [Image.open(image) for image in images]
+    frames[0].save(gif_bytes_io, format='GIF', save_all=True, append_images=frames[1:], duration=500, loop=0)
+    gif_bytes_io.seek(0)  # Rewind the buffer to the beginning
+    return gif_bytes_io.getvalue()
     frames = [Image.open(image) for image in images]
     gif_path = "rejeu.gif"
     frames[0].save(gif_path, save_all=True, append_images=frames[1:], duration=500, loop=0)
@@ -115,10 +140,16 @@ def main():
     trajectoire_files = [os.path.join('trajectoires', f) for f in os.listdir('trajectoires') if f.endswith('.gpx')]
 
     derive_points = extract_gpx_points(derive_file)
-    trajectoire_points_list = [extract_gpx_points(f) for f in trajectoire_files]
+    trajectoire_points_list = filter_nearby_ships(
+        derive_points, 
+        [extract_gpx_points(f) for f in trajectoire_files]
+    )
 
     start_time = min(point[2] for point in derive_points if point[2] is not None)
-    end_time = max(max(point[2] for point in points if point[2] is not None) for points in trajectoire_points_list)
+    if trajectoire_points_list and any(trajectoire_points_list):
+        end_time = max(max(point[2] for point in points if point[2] is not None) for points in trajectoire_points_list)
+    else:
+        raise ValueError("No valid trajectory points found.")
 
     images = save_map_images(derive_points, trajectoire_points_list, start_time, end_time, trajectoire_files)
     gif_path = create_gif(images)

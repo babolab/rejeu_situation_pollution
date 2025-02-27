@@ -2,7 +2,7 @@ import streamlit as st
 import io
 import os
 import base64
-from generate_gif import extract_gpx_points, save_map_images, create_gif
+from app_functions import process_files
 from datetime import datetime
 
 def main():
@@ -16,18 +16,7 @@ def main():
 
     if st.button("Lancer la simulation"):
         if derive_file and trajectoire_files:
-            # Create list of trajectory file names
-            trajectoire_paths = [file.name for file in trajectoire_files]
-
-            # Process files in memory
-            derive_points = extract_gpx_points(io.BytesIO(derive_file.getbuffer()))
-            trajectoire_points_list = [extract_gpx_points(io.BytesIO(file.getbuffer())) for file in trajectoire_files]
-
-            start_time = min(point[2] for point in derive_points if point[2] is not None)
-            end_time = max(max(point[2] for point in points if point[2] is not None) for points in trajectoire_points_list)
-
-            images = save_map_images(derive_points, trajectoire_points_list, start_time, end_time, trajectoire_paths)
-            gif_path = create_gif(images)
+            gif_bytes, trajectoire_paths = process_files(derive_file, trajectoire_files)
 
             # Display legend
             legend_html = "<div style='font-size: 12pt;'>Légende:</div><ul>"
@@ -38,11 +27,11 @@ def main():
             legend_html += "</ul>"
             st.markdown(legend_html, unsafe_allow_html=True)
 
-            st.success(f"GIF créé à {gif_path}")
+            st.success("GIF créé avec succès")
             # Display GIF with pause functionality
             st.markdown(
                 f"""
-                <img src="data:image/gif;base64,{base64.b64encode(open(gif_path, "rb").read()).decode()}" style="width:100%;" id="gif" onmouseover="this.style.animationPlayState='running'" onmouseout="this.style.animationPlayState='paused'">
+                <img src="data:image/gif;base64,{base64.b64encode(gif_bytes).decode()}" style="width:100%;" id="gif" onmouseover="this.style.animationPlayState='running'" onmouseout="this.style.animationPlayState='paused'">
                 <button onclick="document.getElementById('gif').style.animationPlayState='paused';">Pause</button>
                 <button onclick="document.getElementById('gif').style.animationPlayState='running';">Play</button>
                 """,
