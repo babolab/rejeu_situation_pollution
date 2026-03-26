@@ -1,10 +1,10 @@
 .aider*
 .env
-.png
+*.png*
 .gif
 .gpx
 .heic
-.html
+*.html*
 *pychache*
 *__pycache__*
 data/*
